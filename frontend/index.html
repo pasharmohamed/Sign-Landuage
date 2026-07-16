@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.module.js"
+    }
+  }
+  </script>
+  <title>نظام لغة الإشارة العربي — ذهاباً وإياباً</title>
+  <meta name="description" content="نظام تفاعلي للتعرف على لغة الإشارة العربية وتحويل الكلام إلى إشارة في الوقت الفعلي" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ===== Header ===== -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🤟</div>
+    <span>لغة الإشارة العربية</span>
+  </div>
+  <div class="header-badges">
+    <span class="badge badge-blue">ثنائي الاتجاه</span>
+    <span class="badge badge-purple">Three.js</span>
+    <span class="badge badge-green">Real-time</span>
+    <span class="badge badge-blue" id="latency-badge">
+      ⚡ <span id="latency-val">—</span>
+    </span>
+  </div>
+</header>
+
+<!-- ===== Main Layout ===== -->
+<main>
+
+  <!-- ── Right Panel: Camera / Sign Recognition ── -->
+  <section class="panel panel-right" id="panel-camera">
+    <div class="panel-header">
+      <div class="panel-title">
+        <span class="icon">📷</span>
+        <span>التعرف على الإشارة</span>
+        <div class="status-dot" id="dot-camera"></div>
+      </div>
+      <span class="badge badge-blue">إشارة ← نص</span>
+    </div>
+
+    <div class="camera-container">
+      <!-- Live Video -->
+      <video id="camera-video" autoplay muted playsinline style="display:none;"></video>
+      <canvas id="camera-overlay"></canvas>
+
+      <!-- Placeholder when camera off -->
+      <div class="camera-placeholder" id="camera-placeholder">
+        <div class="big-icon">📷</div>
+        <p>شغّل الكاميرا لبدء التعرف على الإشارة</p>
+        <p style="font-size:0.78rem; color: var(--text-muted);">يستخدم MediaPipe لتتبع اليد</p>
+      </div>
+
+      <!-- Tracking chips -->
+      <div class="hand-tracking-info">
+        <div class="tracking-chip" id="chip-hands">✋ لا توجد يد</div>
+        <div class="tracking-chip" id="chip-confidence">دقة: —</div>
+        <div class="tracking-chip" id="chip-fps">FPS: —</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Left Panel: Avatar / Sign Generation ── -->
+  <section class="panel panel-left" id="panel-avatar">
+    <div class="panel-header">
+      <div class="panel-title">
+        <span class="icon">🦾</span>
+        <span>أفاتار لغة الإشارة</span>
+        <div class="status-dot active" id="dot-avatar"></div>
+        <small id="avatar-status-label" style="color:var(--text-muted); font-size:0.72rem;">جاهز</small>
+      </div>
+      <span class="badge badge-purple">نص ← إشارة</span>
+    </div>
+
+    <!-- Three.js Canvas -->
+    <canvas id="avatar-canvas" style="flex:1; width:100%;"></canvas>
+
+    <!-- Animation Queue Overlay -->
+    <div class="anim-queue" id="anim-queue">
+      <div class="queue-item">لا توجد إشارات في الانتظار</div>
+    </div>
+
+    <!-- Current sign label -->
+    <div id="current-sign-label"
+         style="position:absolute; bottom:16px; left:50%; transform:translateX(-50%); opacity:0; transition:opacity 0.3s; font-size:1.2rem; font-weight:800; color:var(--accent-primary); text-shadow: 0 0 20px var(--accent-glow);">
+    </div>
+  </section>
+
+  <!-- ── Bottom Bar ── -->
+  <div class="bottom-bar">
+
+    <!-- Speech Recognition Output -->
+    <div class="recognition-output">
+      <div class="recognition-label">🎤 النص المُعرَّف / المُدخَل</div>
+      <div id="recognized-text" dir="rtl">اكتب أو تحدث لترى الإشارة...</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Text Input -->
+    <div class="input-section">
+      <div class="text-input-wrapper">
+        <input type="text"
+               id="text-input"
+               placeholder="اكتب كلمة أو جملة بالعربية..."
+               dir="rtl"
+               autocomplete="off" />
+        <button class="input-send-btn" id="btn-send" title="إرسال">
+          ➤
+        </button>
+      </div>
+
+      <!-- Mic button -->
+      <button class="btn btn-mic" id="btn-mic" title="التعرف الصوتي">
+        🎤 <span class="btn-text">ميكروفون</span>
+        <div class="status-dot" id="dot-mic"></div>
+      </button>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Camera Button -->
+    <button class="btn btn-camera" id="btn-camera">
+      📷 كاميرا
+    </button>
+
+    <div class="divider"></div>
+
+    <!-- Quick Signs -->
+    <div class="quick-signs">
+      <button class="quick-btn" data-sign="مرحبا">مرحبا</button>
+      <button class="quick-btn" data-sign="شكرا">شكرا</button>
+      <button class="quick-btn" data-sign="نعم">نعم</button>
+      <button class="quick-btn" data-sign="لا">لا</button>
+      <button class="quick-btn" data-sign="أنا">أنا</button>
+      <button class="quick-btn" data-sign="مساعدة">مساعدة</button>
+      <button class="quick-btn" data-sign="كيف حالك">كيف حالك</button>
+      <button class="quick-btn" data-sign="اسمي">اسمي</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Speed control -->
+    <div style="display:flex; flex-direction:column; gap:4px; flex-shrink:0;">
+      <label style="font-size:0.7rem; color:var(--text-muted); font-weight:700;">
+        سرعة الأفاتار: <span id="speed-val">12%</span>
+      </label>
+      <input type="range" id="speed-slider"
+             min="0.03" max="0.35" step="0.01" value="0.12"
+             style="width:100px; accent-color: var(--accent-primary);" />
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Clear queue -->
+    <button class="btn btn-camera" id="btn-clear" style="flex-shrink:0;">
+      🗑️ مسح
+    </button>
+
+  </div><!-- /bottom-bar -->
+
+</main>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
